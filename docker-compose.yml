@@ -1,0 +1,8 @@
+version: '3'
+services:
+  test_runner:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["rebar3", "eunit"]
