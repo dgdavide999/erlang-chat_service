@@ -5,15 +5,26 @@ A simple chat server in Erlang/OTP-25
 
 Build
 -----
-make sure you have Erlang/OTP 25 and Rebar3 installed.
+make sure you have docker and docker-compose installed.
 
-    $ git clone https://github.com/dgdavide999/miniclip_test.git
-    $ rebar3 compile
-
-Run
------
-	$ rebar3 shell
+```bash
+docker-compose up --build 
+```
 
 Test
 -----
-	$ rebar3 eunit
+in a separate terminal run the following command:
+
+```bash
+docker exec -it chat_server bash
+```
+Then, inside the container, launch the Erlang shell with:
+
+```bash
+erl -pa _build/default/lib/miniclip_test/ebin
+```
+Once in the Erlang shell, you can run the client like this:
+
+```erlang
+client:start("localhost", 8081).
+```

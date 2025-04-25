@@ -2,18 +2,22 @@ FROM erlang:25
 WORKDIR /app
 
 # Install Rebar3
-RUN wget https://github.com/erlang/rebar3/releases/download/3.16.0/rebar3 && \
-    chmod +x rebar3 && \
-    mv rebar3 /usr/local/bin/
+RUN wget -qO /usr/local/bin/rebar3 \
+    https://github.com/erlang/rebar3/releases/download/3.16.0/rebar3 && \
+    chmod +x /usr/local/bin/rebar3
 
-# Copy everything in after setting up rebar3
-COPY . .
+# Copy files
+COPY rebar.config ./
+COPY src ./src
+COPY test ./test
 
-# Fetch deps and compile the project
-RUN rebar3 get-deps && rebar3 compile
+# Fetch dependencies, compile, and build the release
+RUN rebar3 get-deps
+RUN rebar3 compile
+RUN rebar3 release
 
-# (not required for eunit)
-# RUN rebar3 release
+# Expose your TCP port
+EXPOSE 8081
 
-# Run EUnit tests when the container starts
-CMD ["rebar3", "eunit"]
+# Run the release in foreground
+CMD ["_build/default/rel/miniclip_test/bin/miniclip_test", "foreground"]
