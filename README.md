@@ -28,4 +28,7 @@ Once in the Erlang shell, you can send one of the following commands to the serv
 ```erlang
 % Create a new room
 client:create_room("localhost", 8081, "Room1").
+
+% List all rooms
+client:list_rooms("localhost", 8081).
 ```
