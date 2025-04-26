@@ -21,6 +21,12 @@ init([]) ->
           restart => permanent,
           shutdown => 5000,
           type => worker,
-          modules => [tcp_server]}
+          modules => [tcp_server]},
+        #{id => room_manager,
+          start => {room_manager, start_link, []},
+          restart => permanent,
+          shutdown => 5000,
+          type => worker,
+          modules => [room_manager]}
     ],
     {ok, {{one_for_one, 5, 10}, Children}}.

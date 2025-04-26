@@ -23,8 +23,9 @@ Then, inside the container, launch the Erlang shell with:
 ```bash
 erl -pa _build/default/lib/miniclip_test/ebin
 ```
-Once in the Erlang shell, you can run the client like this:
-
+Once in the Erlang shell, you can send one of the following commands to the server:
+ 
 ```erlang
-client:start("localhost", 8081).
+% Create a new room
+client:create_room("localhost", 8081, "Room1").
 ```
