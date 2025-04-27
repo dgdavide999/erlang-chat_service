@@ -13,7 +13,7 @@ COPY test ./test
 
 # Fetch dependencies, compile, and build the release
 RUN rebar3 get-deps
-RUN rebar3 compile
+RUN rebar3 as test compile
 RUN rebar3 release
 
 # Expose your TCP port
