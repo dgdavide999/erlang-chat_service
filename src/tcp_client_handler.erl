@@ -62,6 +62,15 @@ handle_message(Data, Socket) ->
             {error, Reason} -> 
                 gen_tcp:send(Socket, <<"Error joining room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
         end;
+        % Leave room
+        {leave_room, User, RoomName} ->
+            tcp_server:register_user(list_to_binary(User), Socket),
+            case room_manager:leave_room(User, RoomName) of
+            {ok, left} -> 
+                gen_tcp:send(Socket, <<"Left room successfully!">>);
+            {error, Reason} -> 
+                gen_tcp:send(Socket, <<"Error leaving room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+        end;
         _Other ->
             gen_tcp:send(Socket, <<"Unknown command">>)
     end.
@@ -72,7 +81,7 @@ parse_command(Command) ->
         ["create_room", User, RoomName] -> {create_room, User, RoomName};
         ["destroy_room", User, RoomName] -> {destroy_room, User, RoomName};
         ["join_room", User, RoomName] -> {join_room, User, RoomName};
-        ["leave_room", User] -> {leave_room, User};
+        ["leave_room", User, RoomName] -> {leave_room, User, RoomName};
         ["list_rooms", User] -> {list_rooms, User};
         ["send_message", User, RoomName, Message] -> {send_message, User, RoomName, Message};
         _ -> 

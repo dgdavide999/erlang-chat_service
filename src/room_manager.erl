@@ -83,12 +83,23 @@ handle_call({join_room, User, RoomName}, _From, State) ->
             end
     end;
 
-handle_call({leave_room, User}, _From, State) ->
-    NewState = maps:map(fun(_RoomName, Room) ->
-                                NewUsers = lists:delete(User, Room#room.users),
-                                Room#room{users = NewUsers}
-                        end, State),
-    {reply, ok, NewState}.
+handle_call({leave_room, User, RoomName}, _From, State) ->
+    case maps:get(RoomName, State) of
+        undefined ->
+            {reply, {error, room_not_found}, State};
+        #room{} = Room ->
+            case lists:member(User, Room#room.users) of
+                true ->
+                    NewUsers = lists:delete(User, Room#room.users),
+                    UpdatedRoom = Room#room{users = NewUsers},
+                    NewState = State#{RoomName => UpdatedRoom},
+                    io:format("[room_manager] ~p left room: ~p~n", [User, RoomName]),
+                    {reply, {ok, left}, NewState};
+                false ->
+                    io:format("[room_manager] Operation failed: ~p is not in the room: ~p~n", [User, RoomName]),
+                    {reply, {error, user_not_in_room}, State}
+            end
+    end.
 
 handle_cast({broadcast, FromUser, RoomName, Message}, State) ->
     case maps:get(RoomName, State, undefined) of

@@ -1,5 +1,5 @@
 -module(client).
--export([create_room/4, list_rooms/3, destroy_room/4, join_room/4]).
+-export([create_room/4, list_rooms/3, destroy_room/4, join_room/4, leave_room/4]).
 
 send(Host, Port, User, Message) ->
     %% Connect to the server
