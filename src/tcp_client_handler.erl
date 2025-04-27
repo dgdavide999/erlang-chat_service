@@ -53,6 +53,15 @@ handle_message(Data, Socket) ->
             {error, Reason} -> 
                 gen_tcp:send(Socket, <<"Error destroying room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
         end;
+        % Join room
+        {join_room, User, RoomName} ->
+            tcp_server:register_user(list_to_binary(User), Socket),
+            case room_manager:join_room(User, RoomName) of
+            {ok, joined} -> 
+                gen_tcp:send(Socket, <<"Joined room successfully!">>);
+            {error, Reason} -> 
+                gen_tcp:send(Socket, <<"Error joining room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+        end;
         _Other ->
             gen_tcp:send(Socket, <<"Unknown command">>)
     end.

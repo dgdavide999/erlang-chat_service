@@ -11,8 +11,21 @@ make sure you have docker and docker-compose installed.
 docker-compose up --build 
 ```
 
-Test
+Automatic Tests
 -----
+
+in a separate terminal run the following command:
+
+```bash
+docker exec -it chat_server bash
+```
+Then, inside the container, launch the Erlang test suite with:
+
+```bash
+erlang3 eunit
+```
+
+
 in a separate terminal run the following command:
 
 ```bash
@@ -34,4 +47,7 @@ client:list_rooms("localhost", 8081, "Username").
 
 % Destroy a room
 client:destroy_room("localhost", 8081, "Username", "Room1").
+
+% Join a room
+client:join_room("localhost", 8081, "Username", "Room1").
 ```

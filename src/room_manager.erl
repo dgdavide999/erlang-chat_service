@@ -48,13 +48,16 @@ handle_call({create_room, User, RoomName}, _From, State) ->
 handle_call({destroy_room, User, RoomName}, _From, State) ->
     case maps:get(RoomName, State) of
         undefined ->
+            io:format("[room_manager] room destruction failed, Room not found: ~p~n", [RoomName]),
             {reply, {error, room_not_found}, State};
         #room{creator = Creator} = Room ->
             case Creator =:= User of
                 true ->
-                {reply, {ok, destroyed}, maps:remove(RoomName, State)};
+                    io:format("[room_manager] room destroyed: ~p~n", [RoomName]),
+                    {reply, {ok, destroyed}, maps:remove(RoomName, State)};
                 false ->
-                {reply, {error, not_creator}, State}
+                    io:format("[room_manager] room destruction failed, User is not the creator: ~p~n", [RoomName]),
+                    {reply, {error, not_creator}, State}
             end
     end;
 
@@ -65,10 +68,19 @@ handle_call(list_rooms, _From, State) ->
 handle_call({join_room, User, RoomName}, _From, State) ->
     case maps:get(RoomName, State) of
         undefined ->
+            io:format("[room_manager] room join failed, Room not found: ~p~n", [RoomName]),
             {reply, {error, room_not_found}, State};
         #room{} = Room ->
-            UpdatedRoom = Room#room{users = lists:usort([User | Room#room.users])},
-            {reply, {ok, joined}, State#{RoomName => UpdatedRoom}}
+            Users = Room#room.users,
+            case lists:member(User, Users) of
+                true ->
+                    io:format("[room_manager] room join failed, User already in room: ~p~n", [RoomName]),
+                    {reply, {error, already_joined}, State};
+                false ->
+                    io:format("[room_manager] ~p room joined: ~p~n", [User,RoomName]),
+                    UpdatedRoom = Room#room{users = [User | Users]},
+                    {reply, {ok, joined}, State#{RoomName => UpdatedRoom}}
+            end
     end;
 
 handle_call({leave_room, User}, _From, State) ->
