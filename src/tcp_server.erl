@@ -1,7 +1,7 @@
 -module(tcp_server).
 -behaviour(gen_server).
 
--export([start_link/0, register_user/2, get_socket/1, get_username/1]).
+-export([start_link/0, register_user/2, get_socket/1, get_username/1, message/4]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -define(PORT, 8081).
@@ -44,12 +44,35 @@ register_user(User, Socket) when is_binary(User) ->
     gen_server:call(?MODULE, {register, User, Socket}).
     
 get_socket(User) when is_binary(User) ->
-    io:format("[tcp_server] broadcast, get socket"),
+    io:format("[tcp_server] get socket"),
     gen_server:call(?MODULE, {get_socket, User}).
 
 get_username(Sock) ->
-    io:format("[tcp_server] broadcast, get username"),
+    io:format("[tcp_server] get username"),
     gen_server:call(?MODULE, {get_username, Sock}).
+
+message(SenderSocket, Sender, Receiver, Message) ->
+    io:format("[tcp_server] sending message: ~p to ~p~n", [Message, Receiver]),
+    gen_server:cast(?MODULE, {message, SenderSocket, Sender, Receiver, Message}).
+
+%% Callbacks
+handle_cast({message, SenderSocket, Sender, Receiver, Message}, State) ->
+    UserSockets = maps:get(user_sockets, State, #{}),
+    case maps:find(list_to_binary(Receiver), UserSockets) of
+        error ->
+            % Receiver not found, send error message to SenderSocket
+            gen_tcp:send(SenderSocket, <<"User not found">>),    
+            {noreply, State};
+
+        {ok, ReceiverSocket} ->
+            % Send the message to Receiver
+            FullMsg = io_lib:format("~s: ~s~n", [Sender, Message]),
+            gen_tcp:send(ReceiverSocket, list_to_binary(FullMsg)),    
+            % Send confirmation to Sender
+            gen_tcp:send(SenderSocket, <<"Message sent successfully!">>),    
+            {noreply, State}
+    end;
+
 
 handle_cast(_Msg, State) ->
     {noreply, State}.

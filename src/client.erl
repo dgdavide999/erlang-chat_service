@@ -1,5 +1,5 @@
 -module(client).
--export([connect/3, create_room/1, destroy_room/1, list_rooms/0, join_room/1, leave_room/1, broadcast/2]).
+-export([connect/3, create_room/1, destroy_room/1, list_rooms/0, join_room/1, leave_room/1, broadcast/2, message/2]).
 
 -define(SOCKET_VAR, client_socket).
 
@@ -56,6 +56,13 @@ broadcast(RoomName, Message) ->
     io:format("Sent broadcast message to room: ~p~n", [RoomName]),
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
     ok.
+
+message(Receiver, Message) ->
+    FullMessage = string:join(["message", Receiver, Message], "|"),
+    io:format("Sending message to ~p: ~p~n", [Receiver, Message]),
+    gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
+    ok.
+
 
 %% --- Listener Management ---
 

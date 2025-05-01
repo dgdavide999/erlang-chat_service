@@ -62,4 +62,7 @@ client:leave_room("Room1").
 
 % Send a broadcast message to a room
 client:broadcast("Room1", "Hello, world!").
+
+% Send a private message to a user
+client:message("Receiver", "Hello, Receiver").
 ```

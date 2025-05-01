@@ -157,3 +157,27 @@ broadcast_without_joining_room_test() ->
     gen_tcp:close(Socket1),
     gen_tcp:close(Socket2),
     io:format("Broadcast Without Joining Room Test Passed~n").
+
+send_message_test() ->
+    io:format("Running Send Message Test~n"),
+    Socket1 = connect_to_server("User1"),
+    Socket2 = connect_to_server("User2"),
+
+    Message = "message|User2|Hello User2!",
+    gen_tcp:send(Socket1, list_to_binary(Message)),    
+    ?assertEqual("Message sent successfully!", recv_line(Socket1)),
+
+    % Now check what User2 receives after the message
+    ?assertEqual("User1: Hello User2!\n", recv_line(Socket2)),
+    gen_tcp:close(Socket1),
+    gen_tcp:close(Socket2),
+    io:format("Send Message Test Passed~n").
+
+send_message_to_nonexisting_user_test() ->
+    io:format("Running Send Message to Nonexisting User Test~n"),
+    Socket = connect_to_server("User1"),
+    Message = "message|User3|Hello User3!",
+    gen_tcp:send(Socket, list_to_binary(Message)),    
+    ?assertEqual("User not found", recv_line(Socket)),
+    gen_tcp:close(Socket),
+    io:format("Send Message to Nonexisting User Test Passed~n").

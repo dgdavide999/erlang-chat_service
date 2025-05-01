@@ -100,6 +100,13 @@ handle_message(Data, Socket) ->
                 room_manager:broadcast(Socket, User, RoomName, Message)
             end);
 
+        % Message to another user
+        {message, Receiver, Message} ->
+            with_user(Socket, fun(User) ->
+                io:format("[client-handler] sending a message to ~p~n", [Receiver]),
+                tcp_server:message(Socket, User, Receiver, Message)
+            end);
+
         _Other ->
             gen_tcp:send(Socket, <<"Unknown command">>)
     end.
@@ -115,6 +122,7 @@ parse_command(Command) ->
         ["leave_room", RoomName] -> {leave_room, RoomName};
         ["list_rooms"] -> {list_rooms};
         ["broadcast", RoomName, Message] -> {broadcast, RoomName, Message};
+        ["message", Receiver, Message] -> {message, Receiver, Message};
         _ -> 
             % Unrecognized command
             {unknown, Command}
