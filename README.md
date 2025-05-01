@@ -22,7 +22,7 @@ docker exec -it chat_server bash
 Then, inside the container, launch the Erlang test suite with:
 
 ```bash
-erlang3 eunit
+rebar3 eunit
 ```
 
 

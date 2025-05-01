@@ -1,144 +1,113 @@
 -module(miniclip_test_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-%% Helper functions to facilitate communication with the TCP server
 -define(PORT, 8081).
 -define(HOST, "localhost").
 
-connect_to_server() ->
-    case gen_tcp:connect(?HOST, ?PORT, [binary, {packet, 0}, {active, false}]) of
-        {ok, Socket} -> Socket;
-        {error, Reason} -> exit({error, Reason})
-    end.
-
-send_command(Socket, Message) ->
+%% Helper functions to facilitate communication with the TCP server
+register_user(Socket, User) ->
+    Message = string:join(["register", User], "|"),
+    io:format("Sent register command: ~p~n", [Message]),
     gen_tcp:send(Socket, list_to_binary(Message)),
-    case gen_tcp:recv(Socket, 0, 5000) of
-        {ok, Response} -> Response;
+    ?assertEqual("User registered successfully!", recv_line(Socket)),
+    Socket.
+
+connect_to_server(User) ->
+    case gen_tcp:connect(?HOST, ?PORT, [binary, {packet, 0}, {active, false}]) of
+        {ok, Socket} -> register_user(Socket, User);
         {error, Reason} -> exit({error, Reason})
     end.
 
-%% Create room test
+recv_line(Socket) ->
+    {ok, Bin} = gen_tcp:recv(Socket, 0, 2000),
+    binary_to_list(Bin).
+
+%% tests
 
 create_room_test() ->
     io:format("Running Create Room Test~n"),
-    Socket = connect_to_server(),
-    Message = "create_room|User1|Room1",
-    Response = send_command(Socket, Message),
-    io:format("Response: ~p~n", [Response]),
-    ?assertEqual("Room created successfully!", binary_to_list(Response)),
+    Socket = connect_to_server("User1"),
+    Message = "create_room|Room1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Room created successfully!", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Create Room Test Passed~n").
 
 create_room_twice_test() ->
     io:format("Running Create Room Twice Test~n"),
-    Socket = connect_to_server(),
-    
-    Message = "create_room|User2|Room1",
-    Response = send_command(Socket, Message),
-    io:format("Second Response: ~p~n", [Response]),
-    ?assertEqual("Error creating room: room_already_exists", binary_to_list(Response)),
-    
+    Socket = connect_to_server("User1"),
+    Message = "create_room|Room1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Error creating room: room_already_exists", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Create Room Twice Test Passed~n").
 
 list_rooms_test() ->
     io:format("Running List Rooms Test~n"),
-    Socket = connect_to_server(),
-    
-    Message = "list_rooms|User1",
-    Response = send_command(Socket, Message),
-    io:format("List Rooms Response: ~p~n", [Response]),
-    
-    %% We expect the response to contain the Room1
-    ?assertMatch("Available rooms: Room1", binary_to_list(Response)),
-    
+    Socket = connect_to_server("User1"),
+    Message = "list_rooms",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Available rooms: Room1", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("List Rooms Test Passed~n").
 
 destroy_room_test() ->
     io:format("Running Destroy Room Test~n"),
-    Socket = connect_to_server(),
-    Message = "destroy_room|User1|Room1",
-    Response = send_command(Socket, Message),
-    io:format("Destroy Room Response: ~p~n", [Response]),
-    
-    %% We expect the room to be destroyed successfully
-    ?assertEqual("Room destroyed successfully!", binary_to_list(Response)),
-    
+    Socket = connect_to_server("User1"),
+    Message = "destroy_room|Room1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Room destroyed successfully!", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Destroy Room Test Passed~n").
 
 destroy_someone_else_room_test() ->
     io:format("Running Destroy Room Test~n"),
-    Socket = connect_to_server(),
+    Socket1 = connect_to_server("User1"),
+    Socket2 = connect_to_server("User2"),
 
-    Message1 = "create_room|User1|Room1",
-    send_command(Socket, Message1),
+    Message1 = "create_room|Room1",
+    gen_tcp:send(Socket1, list_to_binary(Message1)),
 
-    Message2 = "destroy_room|User2|Room1",
-    Response = send_command(Socket, Message2),
-    io:format("Destroy Room Response: ~p~n", [Response]),
-    
-    %% We expect the room to be destroyed successfully
-    ?assertEqual("Error destroying room: not_creator", binary_to_list(Response)),
-    
-    gen_tcp:close(Socket),
+    Message2 = "destroy_room|Room1",
+    gen_tcp:send(Socket2, list_to_binary(Message2)),
+    ?assertEqual("Error destroying room: not_creator", recv_line(Socket2)),
+    gen_tcp:close(Socket1),
+    gen_tcp:close(Socket2),
     io:format("Destroy Someone Else Room Test Passed~n").
 
 join_room_test() ->
     io:format("Running Join Room Test~n"),
-    Socket = connect_to_server(),
-
-    Message2 = "join_room|User2|Room1",
-    Response = send_command(Socket, Message2),
-    io:format("Join Room Response: ~p~n", [Response]),
-    
-    %% We expect the room to be joined successfully
-    ?assertEqual("Joined room successfully!", binary_to_list(Response)),
-    
+    Socket = connect_to_server("User2"),
+    Message = "join_room|Room1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Joined room successfully!", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Join Room Test Passed~n").
 
 join_room_twice_test() ->
-    io:format("Running Join Room Twice Test~n"),
-    Socket = connect_to_server(),
-
-    Message2 = "join_room|User2|Room1",
-    Response = send_command(Socket, Message2),
-    io:format("Join Room Response: ~p~n", [Response]),
-    
-    %% We expect the room to be joined successfully
-    ?assertEqual("Error joining room: already_joined", binary_to_list(Response)),
-    
+    io:format("Running Join Room Test~n"),
+    Socket = connect_to_server("User2"),
+    Message = "join_room|Room1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Error joining room: already_joined", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Join Room Twice Test Passed~n").
 
 leave_room_test() ->
     io:format("Running Leave Room Test~n"),
-    Socket = connect_to_server(),
-
-    Message2 = "leave_room|User2|Room1",
-    Response = send_command(Socket, Message2),
-    io:format("Leave Room Response: ~p~n", [Response]),
-    
-    %% We expect the room to be left successfully
-    ?assertEqual("Left room successfully!", binary_to_list(Response)),
-    
+    Socket = connect_to_server("User2"),
+    Message = "leave_room|Room1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Left room successfully!", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Leave Room Test Passed~n").
 
 leave_room_without_joining_test() ->
     io:format("Running Leave Room Without Joining Test~n"),
-    Socket = connect_to_server(),
-
-    Message2 = "leave_room|User2|Room1",
-    Response = send_command(Socket, Message2),
-    io:format("Leave Room Response: ~p~n", [Response]),
-    
-    %% We expect the room to be left successfully
-    ?assertEqual("Error leaving room: user_not_in_room", binary_to_list(Response)),
-    
+    Socket = connect_to_server("User2"),
+    Message = "leave_room|Room1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Error leaving room: user_not_in_room", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Leave Room Without Joining Test Passed~n").
 
@@ -146,28 +115,21 @@ broadcast_test() ->
     io:format("Running Broadcast Test~n"),
 
     % Connect two users
-    SocketUser1 = connect_to_server(),
-    SocketUser2 = connect_to_server(),
+    Socket1 = connect_to_server("User1"),
+    Socket2 = connect_to_server("User2"),
 
     % Make User2 join the room
-    MessageUser2 = "join_room|User2|Room1",
-    ResponseUser2 = send_command(SocketUser2, MessageUser2),
-    io:format("User2 Join Response: ~p~n", [ResponseUser2]),
+    MessageUser2 = "join_room|Room1",
+    gen_tcp:send(Socket2, list_to_binary(MessageUser2)),
     
     % Now, User1 broadcasts a message
-    MessageUser1 = "broadcast|User1|Room1|Hello Everyone!",
-    ResponseUser1 = send_command(SocketUser1, MessageUser1),
-    io:format("Broadcast Response: ~p~n", [ResponseUser1]),
-    
+    MessageUser1 = "broadcast|Room1|Hello Everyone!",
+    gen_tcp:send(Socket1, list_to_binary(MessageUser1)),    
     % Assert the broadcast response
-    ?assertEqual(binary_to_list(ResponseUser1), "Message sent successfully!"),
+    ?assertEqual("Message sent successfully!", recv_line(Socket1)),
 
     % Now check what User2 receives after the broadcast
-    {ok, DataUser2} = gen_tcp:recv(SocketUser2, 0),
-    io:format("User2 received: ~p~n", [DataUser2]),
-
-    % Close both sockets after the test
-    gen_tcp:close(SocketUser1),
-    gen_tcp:close(SocketUser2),
-
+    ?assertEqual("User1: Hello Everyone!", recv_line(Socket1)),
+    gen_tcp:close(Socket1),
+    gen_tcp:close(Socket2),
     io:format("Broadcast Test Passed~n").
