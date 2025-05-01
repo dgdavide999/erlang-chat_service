@@ -119,17 +119,41 @@ broadcast_test() ->
     Socket2 = connect_to_server("User2"),
 
     % Make User2 join the room
-    MessageUser2 = "join_room|Room1",
-    gen_tcp:send(Socket2, list_to_binary(MessageUser2)),
+    gen_tcp:send(Socket2, list_to_binary("join_room|Room1")),
+    recv_line(Socket2),  % consume join confirmation
     
     % Now, User1 broadcasts a message
-    MessageUser1 = "broadcast|Room1|Hello Everyone!",
-    gen_tcp:send(Socket1, list_to_binary(MessageUser1)),    
-    % Assert the broadcast response
+    gen_tcp:send(Socket1, list_to_binary("broadcast|Room1|Hello Everyone!")),    
+    % Assert the broadcast response from sender
     ?assertEqual("Message sent successfully!", recv_line(Socket1)),
 
     % Now check what User2 receives after the broadcast
-    ?assertEqual("User1: Hello Everyone!", recv_line(Socket1)),
+    ?assertEqual("User1: Hello Everyone!\n", recv_line(Socket2)),
     gen_tcp:close(Socket1),
     gen_tcp:close(Socket2),
     io:format("Broadcast Test Passed~n").
+
+broadcast_nonexisting_room_test() ->
+    io:format("Running Broadcast Nonexisting Test~n"),
+    Socket = connect_to_server("User1"),
+    gen_tcp:send(Socket, list_to_binary("broadcast|Room2|Hello Everyone!")),    
+    ?assertEqual("Error broadcasting: room not found", recv_line(Socket)),
+    gen_tcp:close(Socket),
+    io:format("Broadcast Nonexisting Test Passed~n").
+
+broadcast_without_joining_room_test() ->
+    io:format("Running Broadcast Without Joining Room Test~n"),
+    % Connect two users
+    Socket1 = connect_to_server("User1"),
+    Socket2 = connect_to_server("User2"),
+
+    % Make User1 create the room
+    gen_tcp:send(Socket1, list_to_binary("create_room|Room2")),
+    recv_line(Socket1),  % consume join confirmation
+
+
+    gen_tcp:send(Socket2, list_to_binary("broadcast|Room2|Hello Everyone!")),    
+    ?assertEqual("Error broadcasting: user not in room", recv_line(Socket2)),
+    gen_tcp:close(Socket1),
+    gen_tcp:close(Socket2),
+    io:format("Broadcast Without Joining Room Test Passed~n").

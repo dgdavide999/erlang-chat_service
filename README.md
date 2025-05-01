@@ -25,6 +25,8 @@ Then, inside the container, launch the Erlang test suite with:
 rebar3 eunit
 ```
 
+Manual Tests
+-----
 
 in a separate terminal run the following command:
 
@@ -59,5 +61,5 @@ client:join_room("Room1").
 client:leave_room("Room1").
 
 % Send a broadcast message to a room
-client:broadcast("Username", "Room1", "Hello, world!").
+client:broadcast("Room1", "Hello, world!").
 ```

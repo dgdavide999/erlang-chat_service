@@ -53,7 +53,7 @@ leave_room(RoomName) ->
 
 broadcast(RoomName, Message) ->
     FullMessage = string:join(["broadcast", RoomName, Message], "|"),
-    io:format("Sent broadcast message to room: ~p~n", [Message]),
+    io:format("Sent broadcast message to room: ~p~n", [RoomName]),
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
     ok.
 

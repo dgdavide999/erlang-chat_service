@@ -97,14 +97,7 @@ handle_message(Data, Socket) ->
         {broadcast, RoomName, Message} ->
             with_user(Socket, fun(User) ->
                 io:format("[client-handler] sending a message~n"),
-                case room_manager:broadcast(User, RoomName, Message) of
-                    ok ->
-                        io:format("[client-handler] sending a message ok~n"),
-                        gen_tcp:send(Socket, <<"Message sent successfully!">>);
-                    {error, Reason} ->
-                        io:format("[client-handler] sending a message err~n"),
-                        gen_tcp:send(Socket, <<"Error sending message: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
-                end
+                room_manager:broadcast(Socket, User, RoomName, Message)
             end);
 
         _Other ->

@@ -1,7 +1,7 @@
 -module(room_manager).
 -behaviour(gen_server).
 
--export([start_link/0, create_room/2, destroy_room/2, list_rooms/0, join_room/2, leave_room/2, broadcast/3]).
+-export([start_link/0, create_room/2, destroy_room/2, list_rooms/0, join_room/2, leave_room/2, broadcast/4]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(room, {name, creator, users = []}).
@@ -25,8 +25,8 @@ join_room(User, RoomName) ->
 leave_room(User, RoomName) ->
     gen_server:call(?MODULE, {leave_room, User, RoomName}).
 
-broadcast(User, RoomName, Message) ->
-    gen_server:cast(?MODULE, {broadcast, User, RoomName, Message}).
+broadcast(Socket, User, RoomName, Message) ->
+    gen_server:cast(?MODULE, {broadcast, Socket, User, RoomName, Message}).
 
 %%% --- Callbacks ---
 
@@ -65,7 +65,7 @@ handle_call({list_rooms}, _From, State) ->
     {reply, {ok, RoomNames}, State};
 
 handle_call({join_room, User, RoomName}, _From, State) ->
-    case maps:get(RoomName, State) of
+    case maps:get(RoomName, State, undefined) of
         undefined ->
             io:format("[room_manager] Room join failed, room not found: ~p~n", [RoomName]),
             {reply, {error, room_not_found}, State};
@@ -83,7 +83,7 @@ handle_call({join_room, User, RoomName}, _From, State) ->
     end;
 
 handle_call({leave_room, User, RoomName}, _From, State) ->
-    case maps:get(RoomName, State) of
+    case maps:get(RoomName, State, undefined) of
         undefined ->
             io:format("[room_manager] Leave failed, room not found: ~p~n", [RoomName]),
             {reply, {error, room_not_found}, State};
@@ -103,28 +103,34 @@ handle_call({leave_room, User, RoomName}, _From, State) ->
 
 %%% --- Cast for Broadcast ---
 
-handle_cast({broadcast, FromUser, RoomName, Message}, State) ->
-    case maps:get(RoomName, State, undefined) of
-        undefined ->
-            io:format("[room_manager] Broadcast failed, room not found: ~p~n", [RoomName]),
+handle_cast({broadcast, SenderSocket, FromUser, RoomName, Message}, State) ->
+    case maps:find(RoomName, State) of
+        error ->
+            gen_tcp:send(SenderSocket, <<"Error broadcasting: room not found">>),
             {noreply, State};
-        #room{users = Users} ->
-            FullMessage = io_lib:format("~s: ~s~n", [FromUser, Message]),
-            lists:foreach(
-                fun(Username) ->
-                    if Username =/= FromUser ->
-                            case tcp_server:get_socket(list_to_binary(Username)) of
-                                {ok, Socket} ->
-                                    gen_tcp:send(Socket, FullMessage);
-                                {error, _} ->
-                                    ok
-                            end;
-                        true -> ok
-                    end
-                end,
-                Users
-            ),
-            {noreply, State}
+        {ok, #room{users = Users}} ->
+            case lists:member(FromUser, Users) of
+                false ->
+                    %% send error back to the sender
+                    gen_tcp:send(SenderSocket, <<"Error broadcasting: user not in room">>),
+                    {noreply, State};
+                true ->
+                    FullMsg = io_lib:format("~s: ~s~n", [FromUser, Message]),
+                    lists:foreach(
+                        fun(Username) ->
+                            if Username =/= FromUser ->
+                                case tcp_server:get_socket(Username) of
+                                    {ok, Sock} -> gen_tcp:send(Sock, FullMsg);
+                                    _ -> ok
+                                end;
+                               true -> ok
+                            end
+                        end,
+                        Users
+                    ),
+                    gen_tcp:send(SenderSocket, <<"Message sent successfully!">>),
+                    {noreply, State}
+            end
     end.
 
 handle_info(_Info, State) ->
