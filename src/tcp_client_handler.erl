@@ -21,69 +21,107 @@ loop(Socket) ->
             ok
     end.
 
+% This function is used to verify the user before executing any command
+% It checks if the user is registered and has a valid socket
+with_user(Socket, Fun) ->
+    case tcp_server:get_username(Socket) of
+        {error, _} ->
+            io:format("[tcp_client_handler] User verification failed~n"),
+            gen_tcp:send(Socket, <<"User not found">>);
+        {ok, User} ->
+            Fun(User)
+    end.
+    
+
 % Handle incoming messages from the client
 % This function will parse the command and call the appropriate function in room_manager
 % Then it sends a response back to the client
 handle_message(Data, Socket) ->
     Command = binary_to_list(Data),
     case parse_command(Command) of
-        % Create new room
-        {create_room, User, RoomName} ->
-        tcp_server:register_user(list_to_binary(User), Socket),
-        case room_manager:create_room(User, RoomName) of
-            {ok, RoomName} -> 
-                gen_tcp:send(Socket, <<"Room created successfully!">>);
-            {error, Reason} -> 
-                gen_tcp:send(Socket, <<"Error creating room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
-        end;
-        % List all rooms
-        {list_rooms, User} ->
+
+        % Register user (no lookup needed)
+        {register, User} ->
             tcp_server:register_user(list_to_binary(User), Socket),
-            case room_manager:list_rooms() of
-            {ok, Rooms} ->
-                RoomList = lists:join(", ", Rooms),
-                gen_tcp:send(Socket, <<"Available rooms: ", (list_to_binary(RoomList))/binary>>)
-        end;
+            gen_tcp:send(Socket, <<"User registered successfully!">>);
+
+        % Create room
+        {create_room, RoomName} ->
+            with_user(Socket, fun(User) ->
+                case room_manager:create_room(User, RoomName) of
+                    {ok, _} -> gen_tcp:send(Socket, <<"Room created successfully!">>);
+                    {error, Reason} -> gen_tcp:send(Socket, <<"Error creating room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+                end
+            end);
+
+        % List rooms
+        {list_rooms} ->
+            with_user(Socket, fun(User) ->
+                case room_manager:list_rooms() of
+                    {ok, Rooms} ->
+                        RoomList = lists:join(", ", Rooms),
+                        gen_tcp:send(Socket, <<"Available rooms: ", (list_to_binary(RoomList))/binary>>);
+                    {error, Reason} ->
+                        gen_tcp:send(Socket, <<"Error listing rooms: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+                end
+            end);
+
         % Destroy room
-        {destroy_room, User, RoomName} ->
-            tcp_server:register_user(list_to_binary(User), Socket),
-            case room_manager:destroy_room(User, RoomName) of
-            {ok, destroyed} -> 
-                gen_tcp:send(Socket, <<"Room destroyed successfully!">>);
-            {error, Reason} -> 
-                gen_tcp:send(Socket, <<"Error destroying room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
-        end;
+        {destroy_room, RoomName} ->
+            with_user(Socket, fun(User) ->
+                case room_manager:destroy_room(User, RoomName) of
+                    {ok, destroyed} -> gen_tcp:send(Socket, <<"Room destroyed successfully!">>);
+                    {error, Reason} -> gen_tcp:send(Socket, <<"Error destroying room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+                end
+            end);
+
         % Join room
-        {join_room, User, RoomName} ->
-            tcp_server:register_user(list_to_binary(User), Socket),
-            case room_manager:join_room(User, RoomName) of
-            {ok, joined} -> 
-                gen_tcp:send(Socket, <<"Joined room successfully!">>);
-            {error, Reason} -> 
-                gen_tcp:send(Socket, <<"Error joining room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
-        end;
+        {join_room, RoomName} ->
+            with_user(Socket, fun(User) ->
+                case room_manager:join_room(User, RoomName) of
+                    {ok, joined} -> gen_tcp:send(Socket, <<"Joined room successfully!">>);
+                    {error, Reason} -> gen_tcp:send(Socket, <<"Error joining room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+                end
+            end);
+
         % Leave room
-        {leave_room, User, RoomName} ->
-            tcp_server:register_user(list_to_binary(User), Socket),
-            case room_manager:leave_room(User, RoomName) of
-            {ok, left} -> 
-                gen_tcp:send(Socket, <<"Left room successfully!">>);
-            {error, Reason} -> 
-                gen_tcp:send(Socket, <<"Error leaving room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
-        end;
+        {leave_room, RoomName} ->
+            with_user(Socket, fun(User) ->
+                case room_manager:leave_room(User, RoomName) of
+                    {ok, left} -> gen_tcp:send(Socket, <<"Left room successfully!">>);
+                    {error, Reason} -> gen_tcp:send(Socket, <<"Error leaving room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+                end
+            end);
+
+        % Broadcast
+        {broadcast, RoomName, Message} ->
+            with_user(Socket, fun(User) ->
+                io:format("[client-handler] sending a message~n"),
+                case room_manager:broadcast(User, RoomName, Message) of
+                    ok ->
+                        io:format("[client-handler] sending a message ok~n"),
+                        gen_tcp:send(Socket, <<"Message sent successfully!">>);
+                    {error, Reason} ->
+                        io:format("[client-handler] sending a message err~n"),
+                        gen_tcp:send(Socket, <<"Error sending message: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+                end
+            end);
+
         _Other ->
             gen_tcp:send(Socket, <<"Unknown command">>)
     end.
 
+
 % Parse the command from the client input
 parse_command(Command) ->
     case string:split(Command, "|", all) of
-        ["create_room", User, RoomName] -> {create_room, User, RoomName};
-        ["destroy_room", User, RoomName] -> {destroy_room, User, RoomName};
-        ["join_room", User, RoomName] -> {join_room, User, RoomName};
-        ["leave_room", User, RoomName] -> {leave_room, User, RoomName};
-        ["list_rooms", User] -> {list_rooms, User};
-        ["send_message", User, RoomName, Message] -> {send_message, User, RoomName, Message};
+        ["register", User] -> {register, User};
+        ["create_room", RoomName] -> {create_room, RoomName};
+        ["destroy_room", RoomName] -> {destroy_room, RoomName};
+        ["join_room", RoomName] -> {join_room, RoomName};
+        ["leave_room", RoomName] -> {leave_room, RoomName};
+        ["list_rooms"] -> {list_rooms};
+        ["broadcast", RoomName, Message] -> {broadcast, RoomName, Message};
         _ -> 
             % Unrecognized command
             {unknown, Command}

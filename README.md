@@ -39,15 +39,25 @@ erl -pa _build/default/lib/miniclip_test/ebin
 Once in the Erlang shell, you can send one of the following commands to the server:
  
 ```erlang
+
+% Login to the server
+ client:connect("localhost", 8081, "Username").
+
 % Create a new room
-client:create_room("localhost", 8081, "Username", "Room1").
+client:create_room("Room1").
 
 % List all rooms
-client:list_rooms("localhost", 8081, "Username").
+client:list_rooms().
 
 % Destroy a room
-client:destroy_room("localhost", 8081, "Username", "Room1").
+client:destroy_room("Room1").
 
 % Join a room
-client:join_room("localhost", 8081, "Username", "Room1").
+client:join_room("Room1").
+
+% Leave a room
+client:leave_room("Room1").
+
+% Send a broadcast message to a room
+client:broadcast("Username", "Room1", "Hello, world!").
 ```

@@ -141,3 +141,33 @@ leave_room_without_joining_test() ->
     
     gen_tcp:close(Socket),
     io:format("Leave Room Without Joining Test Passed~n").
+
+broadcast_test() ->
+    io:format("Running Broadcast Test~n"),
+
+    % Connect two users
+    SocketUser1 = connect_to_server(),
+    SocketUser2 = connect_to_server(),
+
+    % Make User2 join the room
+    MessageUser2 = "join_room|User2|Room1",
+    ResponseUser2 = send_command(SocketUser2, MessageUser2),
+    io:format("User2 Join Response: ~p~n", [ResponseUser2]),
+    
+    % Now, User1 broadcasts a message
+    MessageUser1 = "broadcast|User1|Room1|Hello Everyone!",
+    ResponseUser1 = send_command(SocketUser1, MessageUser1),
+    io:format("Broadcast Response: ~p~n", [ResponseUser1]),
+    
+    % Assert the broadcast response
+    ?assertEqual(binary_to_list(ResponseUser1), "Message sent successfully!"),
+
+    % Now check what User2 receives after the broadcast
+    {ok, DataUser2} = gen_tcp:recv(SocketUser2, 0),
+    io:format("User2 received: ~p~n", [DataUser2]),
+
+    % Close both sockets after the test
+    gen_tcp:close(SocketUser1),
+    gen_tcp:close(SocketUser2),
+
+    io:format("Broadcast Test Passed~n").
