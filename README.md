@@ -71,4 +71,7 @@ client:message("Receiver", "Hello, Receiver").
 
 % Invite a user to a private room
 client:invite("Room1", "Receiver").
+
+% Accept an invitation to a private room
+client:accept_invite("Room1").
 ```

@@ -117,6 +117,15 @@ handle_message(Data, Socket) ->
                 room_manager:invite(User, Socket, RoomName, Receiver)
             end);
 
+        % Accept an invite to a room
+        {accept_invite, RoomName} ->
+            with_user(Socket, fun(User) ->
+                case room_manager:accept_invite(User, RoomName) of
+                    {ok, _} -> gen_tcp:send(Socket, <<"Invite accepted successfully!">>);
+                    {error, Reason} -> gen_tcp:send(Socket, <<"Error accepting invite: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
+                end
+            end);
+
         _Other ->
             gen_tcp:send(Socket, <<"Unknown command">>)
     end.
@@ -137,6 +146,7 @@ parse_command(Command) ->
         ["broadcast", RoomName, Message] -> {broadcast, RoomName, Message};
         ["message", Receiver, Message] -> {message, Receiver, Message};
         ["invite", RoomName, Receiver] -> {invite, RoomName, Receiver};
+        ["accept_invite", RoomName] -> {accept_invite, RoomName};
         _ -> 
             % Unrecognized command
             {unknown, Command}
