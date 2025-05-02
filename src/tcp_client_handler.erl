@@ -46,9 +46,9 @@ handle_message(Data, Socket) ->
             gen_tcp:send(Socket, <<"User registered successfully!">>);
 
         % Create room
-        {create_room, RoomName} ->
+        {create_room, RoomName, IsPrivate} ->
             with_user(Socket, fun(User) ->
-                case room_manager:create_room(User, RoomName) of
+                case room_manager:create_room(User, RoomName, IsPrivate) of
                     {ok, _} -> gen_tcp:send(Socket, <<"Room created successfully!">>);
                     {error, Reason} -> gen_tcp:send(Socket, <<"Error creating room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
                 end
@@ -57,19 +57,22 @@ handle_message(Data, Socket) ->
         % List rooms
         {list_rooms} ->
             with_user(Socket, fun(User) ->
-                case room_manager:list_rooms() of
+                case room_manager:list_rooms(User) of
                     {ok, Rooms} ->
-                        RoomList = lists:join(", ", Rooms),
-                        gen_tcp:send(Socket, <<"Available rooms: ", (list_to_binary(RoomList))/binary>>);
+                        RoomList = case Rooms of
+                            [] -> <<"No rooms available">>;
+                            _ -> <<"Available rooms: ", (list_to_binary(lists:join(", ", Rooms)))/binary>>
+                        end,
+                        gen_tcp:send(Socket, RoomList);
                     {error, Reason} ->
                         gen_tcp:send(Socket, <<"Error listing rooms: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
                 end
             end);
 
         % Destroy room
-        {destroy_room, RoomName} ->
+        {destroy_room, RoomName, IsPrivate} ->
             with_user(Socket, fun(User) ->
-                case room_manager:destroy_room(User, RoomName) of
+                case room_manager:destroy_room(User, RoomName, IsPrivate) of
                     {ok, destroyed} -> gen_tcp:send(Socket, <<"Room destroyed successfully!">>);
                     {error, Reason} -> gen_tcp:send(Socket, <<"Error destroying room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
                 end
@@ -85,9 +88,9 @@ handle_message(Data, Socket) ->
             end);
 
         % Leave room
-        {leave_room, RoomName} ->
+        {leave_room, RoomName, IsPrivate} ->
             with_user(Socket, fun(User) ->
-                case room_manager:leave_room(User, RoomName) of
+                case room_manager:leave_room(User, RoomName, IsPrivate) of
                     {ok, left} -> gen_tcp:send(Socket, <<"Left room successfully!">>);
                     {error, Reason} -> gen_tcp:send(Socket, <<"Error leaving room: ", (list_to_binary(atom_to_list(Reason)))/binary>>)
                 end
@@ -116,10 +119,13 @@ handle_message(Data, Socket) ->
 parse_command(Command) ->
     case string:split(Command, "|", all) of
         ["register", User] -> {register, User};
-        ["create_room", RoomName] -> {create_room, RoomName};
-        ["destroy_room", RoomName] -> {destroy_room, RoomName};
+        ["create_room", RoomName, "private"] -> {create_room, RoomName, true};
+        ["create_room", RoomName, "public"] -> {create_room, RoomName, false};
+        ["destroy_room", RoomName, "private"] -> {destroy_room, RoomName, true};
+        ["destroy_room", RoomName, "public"] -> {destroy_room, RoomName, false};
         ["join_room", RoomName] -> {join_room, RoomName};
-        ["leave_room", RoomName] -> {leave_room, RoomName};
+        ["leave_room", RoomName, "private"] -> {leave_room, RoomName, true};
+        ["leave_room", RoomName, "public"] -> {leave_room, RoomName, false};
         ["list_rooms"] -> {list_rooms};
         ["broadcast", RoomName, Message] -> {broadcast, RoomName, Message};
         ["message", Receiver, Message] -> {message, Receiver, Message};

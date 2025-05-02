@@ -43,22 +43,25 @@ Once in the Erlang shell, you can send one of the following commands to the serv
 ```erlang
 
 % Login to the server
- client:connect("localhost", 8081, "Username").
+client:connect("localhost", 8081, "Username").
 
 % Create a new room
-client:create_room("Room1").
+client:create_room("Room1", "public").
+client:create_room("Room1", "private").
 
 % List all rooms
 client:list_rooms().
 
 % Destroy a room
-client:destroy_room("Room1").
+client:destroy_room("Room1", "public").
+client:destroy_room("Room1", "private").
 
 % Join a room
 client:join_room("Room1").
 
 % Leave a room
-client:leave_room("Room1").
+client:leave_room("Room1", "public").
+client:leave_room("Room1", "private").
 
 % Send a broadcast message to a room
 client:broadcast("Room1", "Hello, world!").

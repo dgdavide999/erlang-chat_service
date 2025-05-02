@@ -27,7 +27,7 @@ recv_line(Socket) ->
 create_room_test() ->
     io:format("Running Create Room Test~n"),
     Socket = connect_to_server("User1"),
-    Message = "create_room|Room1",
+    Message = "create_room|Room1|public",
     gen_tcp:send(Socket, list_to_binary(Message)),
     ?assertEqual("Room created successfully!", recv_line(Socket)),
     gen_tcp:close(Socket),
@@ -36,7 +36,7 @@ create_room_test() ->
 create_room_twice_test() ->
     io:format("Running Create Room Twice Test~n"),
     Socket = connect_to_server("User1"),
-    Message = "create_room|Room1",
+    Message = "create_room|Room1|public",
     gen_tcp:send(Socket, list_to_binary(Message)),
     ?assertEqual("Error creating room: room_already_exists", recv_line(Socket)),
     gen_tcp:close(Socket),
@@ -54,7 +54,7 @@ list_rooms_test() ->
 destroy_room_test() ->
     io:format("Running Destroy Room Test~n"),
     Socket = connect_to_server("User1"),
-    Message = "destroy_room|Room1",
+    Message = "destroy_room|Room1|public",
     gen_tcp:send(Socket, list_to_binary(Message)),
     ?assertEqual("Room destroyed successfully!", recv_line(Socket)),
     gen_tcp:close(Socket),
@@ -65,10 +65,10 @@ destroy_someone_else_room_test() ->
     Socket1 = connect_to_server("User1"),
     Socket2 = connect_to_server("User2"),
 
-    Message1 = "create_room|Room1",
+    Message1 = "create_room|Room1|public",
     gen_tcp:send(Socket1, list_to_binary(Message1)),
 
-    Message2 = "destroy_room|Room1",
+    Message2 = "destroy_room|Room1|public",
     gen_tcp:send(Socket2, list_to_binary(Message2)),
     ?assertEqual("Error destroying room: not_creator", recv_line(Socket2)),
     gen_tcp:close(Socket1),
@@ -96,7 +96,7 @@ join_room_twice_test() ->
 leave_room_test() ->
     io:format("Running Leave Room Test~n"),
     Socket = connect_to_server("User2"),
-    Message = "leave_room|Room1",
+    Message = "leave_room|Room1|public",
     gen_tcp:send(Socket, list_to_binary(Message)),
     ?assertEqual("Left room successfully!", recv_line(Socket)),
     gen_tcp:close(Socket),
@@ -105,7 +105,7 @@ leave_room_test() ->
 leave_room_without_joining_test() ->
     io:format("Running Leave Room Without Joining Test~n"),
     Socket = connect_to_server("User2"),
-    Message = "leave_room|Room1",
+    Message = "leave_room|Room1|public",
     gen_tcp:send(Socket, list_to_binary(Message)),
     ?assertEqual("Error leaving room: user_not_in_room", recv_line(Socket)),
     gen_tcp:close(Socket),
@@ -148,7 +148,7 @@ broadcast_without_joining_room_test() ->
     Socket2 = connect_to_server("User2"),
 
     % Make User1 create the room
-    gen_tcp:send(Socket1, list_to_binary("create_room|Room2")),
+    gen_tcp:send(Socket1, list_to_binary("create_room|Room2|public")),
     recv_line(Socket1),  % consume join confirmation
 
 
@@ -181,3 +181,39 @@ send_message_to_nonexisting_user_test() ->
     ?assertEqual("User not found", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Send Message to Nonexisting User Test Passed~n").
+
+create_private_room_test() ->
+    io:format("Running Create Private Room Test~n"),
+    Socket = connect_to_server("User1"),
+    Message = "create_room|PrivateRoom1|private",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Room created successfully!", recv_line(Socket)),
+    gen_tcp:close(Socket),
+    io:format("Create Private Room Test Passed~n").
+
+create_private_room_twice_test() ->
+    io:format("Running Create Private Room Twice Test~n"),
+    Socket = connect_to_server("User1"),
+    Message = "create_room|PrivateRoom1|private",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Error creating room: room_already_exists", recv_line(Socket)),
+    gen_tcp:close(Socket),
+    io:format("Create Private Room Twice Test Passed~n").
+
+is_private_room_hidden_test() ->
+    io:format("Running Is Private Room Hidden Test~n"),
+    Socket = connect_to_server("User2"),
+    Message = "list_rooms",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Available rooms: Room1, Room2", recv_line(Socket)),
+    gen_tcp:close(Socket),
+    io:format("Is Private Room Hidden Test Passed~n").
+
+uninvited_user_join_private_room_test() ->
+    io:format("Running Uninvited User Join Private Room Test~n"),
+    Socket = connect_to_server("User2"),
+    Message = "join_room|PrivateRoom1",
+    gen_tcp:send(Socket, list_to_binary(Message)),
+    ?assertEqual("Error joining room: room_not_found", recv_line(Socket)),
+    gen_tcp:close(Socket),
+    io:format("Uninvited User Join Private Room Test Passed~n").

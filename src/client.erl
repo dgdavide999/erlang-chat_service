@@ -1,5 +1,5 @@
 -module(client).
--export([connect/3, create_room/1, destroy_room/1, list_rooms/0, join_room/1, leave_room/1, broadcast/2, message/2]).
+-export([connect/3, create_room/2, destroy_room/2, list_rooms/0, join_room/1, leave_room/2, broadcast/2, message/2, invite/2, accept_invite/1]).
 
 -define(SOCKET_VAR, client_socket).
 
@@ -21,13 +21,19 @@ register_user(Sock, User) ->
     ok = gen_tcp:send(Sock, list_to_binary(Message)),
     ok.
 
-create_room(RoomName) ->
-    Message = string:join(["create_room", RoomName], "|"),
+create_room(RoomName, IsPrivate) ->
+    Message = string:join(["create_room", RoomName, IsPrivate], "|"),
     io:format("Sent create room command: ~p~n", [Message]),
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(Message)),
     ok.
 
-destroy_room(RoomName) ->
+destroy_room(RoomName, IsPrivate) ->
+    Message = string:join(["destroy_room", RoomName, IsPrivate], "|"),
+    io:format("Sent destroy room command: ~p~n", [Message]),
+    gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(Message)),
+    ok.
+
+destroy_private_room(RoomName) ->
     Message = string:join(["destroy_room", RoomName], "|"),
     io:format("Sent destroy room command: ~p~n", [Message]),
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(Message)),
@@ -45,8 +51,8 @@ join_room(RoomName) ->
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(Message)),
     ok.
 
-leave_room(RoomName) ->
-    Message = string:join(["leave_room", RoomName], "|"),
+leave_room(RoomName, IsPrivate) ->
+    Message = string:join(["leave_room", RoomName, IsPrivate], "|"),
     io:format("Sent leave room command: ~p~n", [Message]),
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(Message)),
     ok.
@@ -63,6 +69,17 @@ message(Receiver, Message) ->
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
     ok.
 
+invite(Receiver, RoomName) ->
+    FullMessage = string:join(["invite", Receiver, RoomName], "|"),
+    io:format("Sending invite to ~p for room ~p~n", [Receiver, RoomName]),
+    gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
+    ok.
+
+accept_invite(RoomName) ->
+    FullMessage = string:join(["accept_invite", RoomName], "|"),
+    io:format("Accepting invite for room ~p~n", [RoomName]),
+    gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
+    ok.
 
 %% --- Listener Management ---
 
