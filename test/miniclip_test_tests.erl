@@ -235,3 +235,33 @@ invite_user_test() ->
     gen_tcp:close(Socket1),
     gen_tcp:close(Socket2),
     io:format("Invite User Test Passed~n").
+
+accept_invitation_test() ->
+    io:format("Running Accept Invitation Test~n"),
+    Socket1 = connect_to_server("User1"),
+    Socket2 = connect_to_server("User2"),
+
+    % User2 accepts the invitation
+    Message = "accept_invite|PrivateRoom1",
+    gen_tcp:send(Socket2, list_to_binary(Message)),
+    ?assertEqual("Invite accepted successfully!", recv_line(Socket2)),
+    gen_tcp:close(Socket1),
+    gen_tcp:close(Socket2),
+    io:format("Accept Invitation Test Passed~n").
+
+accept_nonexisting_invitation_test() ->
+    io:format("Running Accept Nonexisting Invitation Test~n"),
+    Socket1 = connect_to_server("User1"),
+    Socket2 = connect_to_server("User2"),
+
+    % User1 creates a private room
+    gen_tcp:send(Socket1, list_to_binary("create_room|PrivateRoom2|private")),
+    recv_line(Socket1),  % consume join confirmation
+
+    % User2 tries to accept a non-existing invitation
+    Message = "accept_invite|PrivateRoom2",
+    gen_tcp:send(Socket2, list_to_binary(Message)),
+    ?assertEqual("Error accepting invite: not_invited", recv_line(Socket2)),
+    gen_tcp:close(Socket1),
+    gen_tcp:close(Socket2),
+    io:format("Accept Nonexisting Invitation Test Passed~n").
