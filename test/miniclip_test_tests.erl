@@ -217,3 +217,21 @@ uninvited_user_join_private_room_test() ->
     ?assertEqual("Error joining room: room_not_found", recv_line(Socket)),
     gen_tcp:close(Socket),
     io:format("Uninvited User Join Private Room Test Passed~n").
+
+invite_user_test() ->
+    io:format("Running Invite User Test~n"),
+    Socket1 = connect_to_server("User1"),
+    Socket2 = connect_to_server("User2"),
+
+    % User1 creates a private room
+    gen_tcp:send(Socket1, list_to_binary("create_room|PrivateRoom1|private")),
+    recv_line(Socket1),  % consume join confirmation
+
+    % User1 invites User2 to the private room
+    Message = "invite|PrivateRoom1|User2",
+    gen_tcp:send(Socket1, list_to_binary(Message)),
+    ?assertEqual("User invited successfully!", recv_line(Socket1)),
+    ?assertEqual("You have been invited to private room PrivateRoom1 by User1\n", recv_line(Socket2)),
+    gen_tcp:close(Socket1),
+    gen_tcp:close(Socket2),
+    io:format("Invite User Test Passed~n").

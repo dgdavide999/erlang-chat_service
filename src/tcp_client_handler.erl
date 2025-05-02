@@ -110,6 +110,13 @@ handle_message(Data, Socket) ->
                 tcp_server:message(Socket, User, Receiver, Message)
             end);
 
+        % Invite another user to a private room
+        {invite, RoomName, Receiver} ->
+            with_user(Socket, fun(User) ->
+                io:format("[client-handler] inviting ~p to room ~p~n", [Receiver, RoomName]),
+                room_manager:invite(User, Socket, RoomName, Receiver)
+            end);
+
         _Other ->
             gen_tcp:send(Socket, <<"Unknown command">>)
     end.
@@ -129,6 +136,7 @@ parse_command(Command) ->
         ["list_rooms"] -> {list_rooms};
         ["broadcast", RoomName, Message] -> {broadcast, RoomName, Message};
         ["message", Receiver, Message] -> {message, Receiver, Message};
+        ["invite", RoomName, Receiver] -> {invite, RoomName, Receiver};
         _ -> 
             % Unrecognized command
             {unknown, Command}

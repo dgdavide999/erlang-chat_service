@@ -1,7 +1,7 @@
 -module(room_manager).
 -behaviour(gen_server).
 
--export([start_link/0, create_room/3, destroy_room/3, list_rooms/1, join_room/2, leave_room/3, broadcast/4]).
+-export([start_link/0, create_room/3, destroy_room/3, list_rooms/1, join_room/2, leave_room/3, broadcast/4, invite/4]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(room, {name, creator, users = []}).
@@ -35,6 +35,8 @@ leave_room(User, RoomName, IsPrivate) ->
 broadcast(Socket, User, RoomName, Message) ->
     gen_server:cast(?MODULE, {broadcast, Socket, User, RoomName, Message}).
 
+invite(User, UserSocket, RoomName, Receiver) ->
+    gen_server:cast(?MODULE, {invite, User, UserSocket, RoomName, Receiver}).
 %%% --- Callbacks ---
 
 init([]) ->
@@ -178,7 +180,54 @@ handle_cast({broadcast, SenderSocket, FromUser, RoomName, Message}, State) ->
                     gen_tcp:send(SenderSocket, <<"Error broadcasting: room not found">>),
                     {noreply, State}
             end
-    end.
+    end;
+
+handle_cast({invite, User, UserSocket, RoomName, Receiver}, State) ->
+    io:format("[room_manager] State: ~p~n", [State]),
+    PrivMap = maps:get(private, State, #{}),
+    case maps:find(RoomName, PrivMap) of
+        %% Room doesn’t exist
+        error ->
+            gen_tcp:send(UserSocket, <<"Room not found">>),
+            {noreply, State};
+
+        {ok, #private_room{creator = Creator, invited = Invited} = Room} ->
+            %% Only the creator may invite
+            case Creator =:= User of
+                false ->
+                    gen_tcp:send(UserSocket, <<"Only the creator can invite users">>),
+                    {noreply, State};
+
+                true ->
+                    %% Already invited?
+                    case lists:member(Receiver, Invited) of
+                        true ->
+                            gen_tcp:send(UserSocket, <<"User already invited">>),
+                            {noreply, State};
+
+                        false ->
+                            %% Update invited list
+                            NewRoom    = Room#private_room{invited = [Receiver | Invited]},
+                            NewPrivMap = maps:put(RoomName, NewRoom, PrivMap),
+                            NewState   = State#{private => NewPrivMap},
+
+                            %% Notify the invited user if online
+                            case tcp_server:get_socket(list_to_binary(Receiver)) of
+                                {ok, RSock} ->
+                                    gen_tcp:send(RSock,
+                                        io_lib:format(
+                                            "You have been invited to private room ~s by ~s~n",
+                                            [RoomName, User]));
+                                _ -> ok
+                            end,
+
+                            %% Confirm back to inviter
+                            gen_tcp:send(UserSocket, <<"User invited successfully!">>),
+
+                            {noreply, NewState}
+                    end
+            end
+    end.    
 
 %% Extracted helper for the common “send to each user” logic
 do_broadcast(SenderSocket, FromUser, Message, Users) ->

@@ -69,8 +69,8 @@ message(Receiver, Message) ->
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
     ok.
 
-invite(Receiver, RoomName) ->
-    FullMessage = string:join(["invite", Receiver, RoomName], "|"),
+invite(RoomName, Receiver) ->
+    FullMessage = string:join(["invite", RoomName, Receiver], "|"),
     io:format("Sending invite to ~p for room ~p~n", [Receiver, RoomName]),
     gen_tcp:send(erlang:get(?SOCKET_VAR), list_to_binary(FullMessage)),
     ok.

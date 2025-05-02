@@ -68,4 +68,7 @@ client:broadcast("Room1", "Hello, world!").
 
 % Send a private message to a user
 client:message("Receiver", "Hello, Receiver").
+
+% Invite a user to a private room
+client:invite("Room1", "Receiver").
 ```
